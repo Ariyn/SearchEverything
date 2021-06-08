@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+    <title>Hello World!</title>
+    <style>
+        .item {
+            border: 1px solid #FFFF;
+        }
+        .item-focus {
+            border: 1px solid #1A1A1A;
+        }
+        html, body {
+            background-color: rgba(0,0,0,0);
+        }
+
+        .non-transparent {
+            background-color: #FFFFFF;
+        }
+    </style>
+    <script src="https://unpkg.com/vue@next"></script>
+  </head>
+  <body>
+    <div id="App" style="width:100%; height:100%">
+        <!-- <input type="text" v-model="input" @keyup.enter="submit" name="test" id="test" class="form-control input-block-level" ref="input" autofocus>
+        <div>{{ mode }}</div>
+        <div v-show="mode == 'memo-search'"><ul><li class="item" v-for="memo in memoItems" :class="{ 'item-focus': memo.isFocued }">{{ memo.title }}</li></ul></div>
+         -->
+
+        <input type="text" v-model="input" name="test" id="test" class="form-control input-block-level" ref="input" autofocus>
+        <div class="non-transparent" v-if="mode !== undefined || mode !== null">{{ mode }}</div>
+        <div v-show="!doesShowTextArea" :class="{ 'non-transparent': !doesShowTextArea }"><ul><li class="item" v-for="item in searchedResult" :class="{ 'item-focus': item.isFocued }">{{ item.title }}</li></ul></div>
+        <textarea name="textArea" id="textArea" cols="30" rows="10" ref="textArea" v-show="doesShowTextArea" v-model="textAreaText" :class="{ 'non-transparent': doesShowTextArea }"></textarea>
+        <div v-show="spotify.show"><img :src="spotify.thumbnail"></div>
+    </div>
+    <script src="axios.min.js"></script>
+    <script src="memo.js"></script>
+    <script src="spotify.js"></script>
+    <script src="chrome.js"></script>
+  </body>
+
+  <script>
+    const { ipcRenderer } = require('electron')
+    let inputMode = {
+        Text:"text",
+        MemoSearch:"memo-search",
+        MemoCreate:"memo-create",
+    }
+    const App = {
+        created() {
+            window.addEventListener('keydown', this.navigate)
+        },
+        data() {
+            return {
+                modes:[],
+                mode: null,
+
+                spotify: {
+                    show: true,
+                    thumbnail: ""
+                },
+                
+                doesShowTextArea:false,
+                input:"",
+                text: "",
+                focusedIndex: -1,
+                searchedResult: [],
+                textAreaText: "",
+            }
+        },
+        methods: {
+            navigate(event) {
+                if(event.key == "Escape") {
+                    if(this.input == "")
+                        window.close()
+                    else {
+                        this.input = "";
+                        this.setSearchedResult([]);
+                        this.setMode("text")
+                    }
+                }
+                if((38 == event.keyCode || 40 == event.keyCode) && !this.doesShowTextArea) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    
+                    if (event.keyCode == 40) {
+                        this.focusedIndex++;
+                        if (this.searchedResult.length <= this.focusedIndex) {
+                            this.focusedIndex = this.focusedIndex-1;
+                        }
+
+                        this.searchedResult[this.focusedIndex].isFocued = true
+                        if(this.focusedIndex != 0) {
+                            this.searchedResult[this.focusedIndex-1].isFocued = false
+                        }
+                    } else {
+                        this.focusedIndex--;
+                        if (this.focusedIndex < 0) {
+                            this.focusedIndex = 0;
+                        }
+
+                        this.searchedResult[this.focusedIndex].isFocued = true
+                        if(this.focusedIndex != this.searchedResult.length - 1) {
+                            this.searchedResult[this.focusedIndex+1].isFocued = false
+                        }
+                    }
+
+                    this.mode.changedFocusedResult(this.focusedIndex, this.searchedResult[this.focusedIndex])
+                } else if(this.mode.hasOwnProperty("searchBoxCommand")) {
+                    result = this.mode.searchBoxCommand(event)
+                    if(result == "return") {
+                        this.input = "";
+                        this.setSearchedResult([]);
+                        this.setMode("text")
+                    }
+                }
+            },
+            setMode(keyword) {
+                this.mode = this.modes[keyword];
+                console.log("set mode", this.mode)
+            },
+            bindMode(mode) {
+                this.modes[mode.keyword] = mode;
+                if(mode.config.default) {
+                    this.setMode(mode.keyword);
+                }
+
+                mode.bind(this);
+            },
+            hasMode(modeName) {
+                return this.modes.hasOwnProperty(modeName)
+            },
+            setSearchedResult(searchedResult) {
+                for(i in searchedResult) {
+                    searchedResult[i].isFocused = false;
+                }
+                this.searchedResult = searchedResult.slice();
+                this.focusedIndex = -1;
+            },
+            setSearchedResultFocus(index) {
+                this.focusedIndex = index;
+                this.searchedResult[index].isFocused = true;
+            },
+            showTextArea() {
+                this.doesShowTextArea = true;
+                this.$nextTick(function() {
+                    this.$refs.textArea.focus();
+                })
+
+                console.log(this.doesShowTextArea);
+            },
+            hideTextArea() {
+                this.doesShowTextArea = false;
+                this.$nextTick(function() {
+                    this.$refs.input.focus();
+                })
+
+                console.log(this.doesShowTextArea);
+            }
+        },
+        watch: {
+            input: function(input) {
+                text = input
+
+                if(this.mode.useKeyword && this.input.indexOf(this.mode.keyword+" ") != 0) {
+                    this.input = "";
+                    this.setSearchedResult([]);
+                    this.setMode("text");
+                } else if (this.mode.useKeyword && this.input.indexOf(this.mode.keyword+" ") == 0) {
+                    text = text.replace(this.mode.keyword+" ", "")
+                }
+                
+                this.text = text;
+                result = this.mode.searchBoxInput(text)
+                if(result == "return") {
+                    this.input = "";
+                    this.setSearchedResult([]);
+                    this.setMode("text")
+                }
+            },
+        } 
+    }
+
+    function TextMode(config) {
+        let app = null;
+
+        function bind(_app) {
+            app = _app;
+        }
+
+        function searchBoxInput(value) {
+            console.log(value)
+            if(!value.endsWith(" ")) {
+                // TODO: auto complete
+                return
+            }
+
+            const keyword = value.substring(0, value.length-1);
+            if(app.hasMode(keyword)) {
+                app.setMode(keyword);
+            }
+        }
+
+        return {
+            keyword: inputMode.Text,
+            bind,
+            searchBoxInput,
+            config: {
+                default: true,
+            },
+            useKeyword: false,
+            showSearchedResult: function() {
+                return true
+            },
+            showTextArea: function() {
+                return false
+            }
+        }
+    }
+
+    const app = Vue.createApp(App);
+    const vm = app.mount('#App');
+    
+    vm.bindMode(new TextMode());
+    vm.bindMode(new Memo());
+    vm.bindMode(new Spotify());
+    vm.bindMode(new Chrome());
+
+  </script>
+</html>
