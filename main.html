@@ -114,6 +114,8 @@
                         this.input = "";
                         this.setSearchedResult([]);
                         this.setMode("text")
+                    } else if (result == "exit") {
+                        // window.close()
                     }
                 }
             },
@@ -178,6 +180,8 @@
                     this.input = "";
                     this.setSearchedResult([]);
                     this.setMode("text")
+                } else if (result == "exit") {
+                    window.close()
                 }
             },
         } 

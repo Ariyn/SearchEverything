@@ -31,25 +31,6 @@ memo = function() {
     }
 }()
 
-function createWindow () {
-    if (!tray) { // if tray hasn't been created already.
-        createTray()
-    }
-  const win = new BrowserWindow({
-    width: 500,
-    height: 460,
-    webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
-        preload: 'preload.js',
-    },
-    frame: false,
-    transparent: true,
-  })
-
-  win.loadFile('main.html')
-}
-
 ipcMain.on("memo-request", (event, action, ...args) => {
     console.log(action, args)
 
@@ -124,10 +105,14 @@ app.on('window-all-closed', function () {
     // app.dock.hide()
 })
 
-app.on('will-quit', () => {
-    // Unregister a shortcut.
-    globalShortcut.unregister('CommandOrControl+X')
-  
+app.on('will-quit', () => { 
     // Unregister all shortcuts.
     globalShortcut.unregisterAll()
   })
+
+var i=0;
+setInterval(() => {
+    console.log("here "+i)
+    i++;
+
+}, 1000)
