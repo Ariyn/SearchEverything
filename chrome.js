@@ -15,6 +15,10 @@ function Chrome(config) {
         "github": () => {
             shell.openExternal("https://github.com/")
             return "return"
+        },
+        "default": (arguments) => {
+            shell.openExternal("https://www.google.com/search?q="+arguments.replace(" ", "+"))
+            return "return"
         }
     }
 
@@ -43,11 +47,12 @@ function Chrome(config) {
 
             if(app.focusedIndex != -1) {
                 value = app.searchedResult[app.focusedIndex]["title"]
-                console.log(value);
             }
             
             if(commands.hasOwnProperty(value)) {
                 return commands[value]()
+            } else {
+                return commands["default"](value)
             }
         }
     }
