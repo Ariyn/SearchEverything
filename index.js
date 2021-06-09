@@ -72,13 +72,61 @@ ipcMain.on("memo-request", (event, action, ...args) => {
     return
 })
 
+function createWindow () {
+    if(windowMutex) {
+        return
+    }
+    
+    const win = new BrowserWindow({
+      width: 500,
+      height: 460,
+      webPreferences: {
+          nodeIntegration: true,
+          contextIsolation: false,
+          preload: 'preload.js',
+      },
+      frame: false,
+      transparent: true,
+    })
+  
+    win.loadFile('main.html')
+    windowMutex = true;
+  }
+
+var windowMutex = false;
+var lastClickedTime = null;
 app.whenReady().then(() => {
+    const ret = globalShortcut.register('CommandOrControl+Space', () => {
+        let now = new Date();
+        if (lastClickedTime != null && now - lastClickedTime <= 300) {
+            createWindow();
+            lastClickedTime = null;
+        } else {
+            lastClickedTime = now;
+        }
+        
+
+        console.log('CommandOrControl+Space is pressed')
+      })
+    
+      if (!ret) {
+        console.log('registration failed')
+      }
+    
+      // Check whether a shortcut is registered.
+      console.log(globalShortcut.isRegistered('CommandOrControl+Space'))
+
+      if (!tray) { // if tray hasn't been created already.
+        createTray()
+    }
+
   createWindow()
 })
 
 let tray = null
 function createTray () {
-  const icon = './icon.jpg' // required.
+    // https://www.flaticon.com/kr/authors/pixel-perfect/tritone
+  const icon = './icon.png' // required.
   console.log(icon)
   const trayicon = nativeImage.createFromPath(icon)
   tray = new Tray(trayicon.resize({ width: 16 }))
@@ -103,6 +151,7 @@ function createTray () {
 app.on('window-all-closed', function () {
 //   if (process.platform !== 'darwin') app.quit()
     // app.dock.hide()
+    windowMutex = false;
 })
 
 app.on('will-quit', () => { 
